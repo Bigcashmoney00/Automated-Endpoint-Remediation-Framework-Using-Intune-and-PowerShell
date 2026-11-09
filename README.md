@@ -32,7 +32,8 @@ endpoint-remediation/
 │   ├── WindowsUpdate-Service/   # Broken Windows Update service
 │   ├── Registry-Security/       # Missing registry security settings
 │   ├── Defender-Status/         # Disabled Windows Defender
-│   └── Required-Apps/           # Failed/missing application installations
+│   ├── Required-Apps/           # Failed/missing application installations
+│   └── Edge-Copilot-Repair/     # Edge/Copilot 0xc000007b damaged installs
 └── monitoring/
     └── RemediationReport.ps1    # Aggregate logs and report
 ```
@@ -45,6 +46,7 @@ endpoint-remediation/
 | **Registry Security** | Key missing or value incorrect | Create/restore registry settings |
 | **Windows Defender** | Real-time protection disabled | Enable Defender, restart service |
 | **Required Applications** | App not installed or corrupted | Reinstall via Winget/Chocolatey |
+| **Edge / Copilot (0xc000007b)** | Missing/bad Edge, WebView2, VC++ x64, or Copilot AppX | Force-repair via winget + reset/re-register Copilot AppX + policy/registry |
 
 ## Intune Proactive Remediation Requirements
 

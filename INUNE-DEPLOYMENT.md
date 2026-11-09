@@ -51,6 +51,14 @@
 | Registry Security   | `remediations/Registry-Security/Detection.ps1`     | `remediations/Registry-Security/Remediation.ps1`     |
 | Defender Status     | `remediations/Defender-Status/Detection.ps1`       | `remediations/Defender-Status/Remediation.ps1`       |
 | Required Apps       | `remediations/Required-Apps/Detection.ps1`         | `remediations/Required-Apps/Remediation.ps1`         |
+| Edge / Copilot Repair | `Edge-Copilot-Repair/Detection.ps1`              | `Edge-Copilot-Repair/Remediation.ps1`               |
+
+### Edge / Copilot `0xc000007b` notes
+
+- Error `0xc000007b` (`STATUS_INVALID_IMAGE_FORMAT`) usually means a bad/mismatched binary (often VC++ CRT or Edge `msedge.dll`), not that Windows itself must be reinstalled.
+- Copilot is an AppX host that loads Edge/WebView2 components; repairing Edge + WebView2 + VC++ x64, then resetting the Copilot package, fixes most cases without wiping the OS.
+- Registry: detection clears `HKLM\SOFTWARE\Policies\Microsoft\Windows\WindowsCopilot\TurnOffWindowsCopilot` when set to `1`. Per-user Copilot shell keys under `HKCU` are applied only when the script runs interactively (not as SYSTEM).
+- After remediation, reboot once if Copilot still fails to start.
 
 ## How It Works
 
