@@ -1,41 +1,41 @@
-# Automated-Endpoint-Remediation-Framework-Using-Intune-and-PowerShell
-Built automated endpoint remediation workflows using PowerShell and Intune proactive remediations to detect and resolve configuration drift across enterprise Windows devices.
+# Automated Endpoint Remediation Framework (NinjaOne + PowerShell)
+
+Built automated endpoint remediation workflows using PowerShell and **NinjaOne** to detect and resolve configuration drift across managed Windows devices.
+
+> Primary RMM: **NinjaOne**. Intune notes remain in `INUNE-DEPLOYMENT.md` only as an optional alternate.
 
 ## Concept
 
-Instead of fixing issues manually, endpoints **detect** problems and **remediate** themselves automatically. Intune runs detection scripts on a schedule; when a script reports non-compliance, the remediation script runs to fix it.
+Instead of fixing issues manually, endpoints **detect** problems and **remediate** themselves automatically. NinjaOne runs scripts on-demand, on a schedule, or when a condition fails.
 
-## Architecture
+## Architecture (NinjaOne)
 
 ```
-Detection Script (runs every X hours)
+On-demand / Scheduled script / Condition
     │
-    ├── Exit 0 = Compliant (no action)
+    ├── Healthy (exit 0) → done
     │
-    └── Exit 1 = Non-compliant
+    └── Unhealthy → remediation script (System)
             │
-            ▼
-    Remediation Script (runs to fix)
-            │
-            └── Logs result to Intune / local
+            └── Logs to NinjaOne activity + C:\ProgramData\Remediation\Logs
 ```
 
 ## Project Structure
 
 ```
 endpoint-remediation/
-├── README.md                    # This file
-├── INUNE-DEPLOYMENT.md          # Intune setup guide
-├── scripts/
-│   └── RemediationLogger.ps1    # Shared logging module
-├── remediations/
-│   ├── WindowsUpdate-Service/   # Broken Windows Update service
-│   ├── Registry-Security/       # Missing registry security settings
-│   ├── Defender-Status/         # Disabled Windows Defender
-│   ├── Required-Apps/           # Failed/missing application installations
-│   └── Edge-Copilot-Repair/     # Edge/Copilot 0xc000007b damaged installs
-└── monitoring/
-    └── RemediationReport.ps1    # Aggregate logs and report
+├── README.md
+├── NINJAONE-DEPLOYMENT.md       # NinjaOne setup (primary)
+├── INUNE-DEPLOYMENT.md          # Optional Intune notes
+├── RemediationLogger.ps1
+├── WindowsUpdate-Service/
+├── Registry-Security/
+├── Defender-Status/
+├── Required-Apps/
+└── Edge-Copilot-Repair/         # Edge/Copilot 0xc000007b repair
+    ├── Detection.ps1
+    ├── Remediation.ps1
+    └── NinjaOne-DetectAndRepair.ps1   # paste this into NinjaOne
 ```
 
 ## Remediations Included
@@ -45,48 +45,45 @@ endpoint-remediation/
 | **Windows Update Service** | Service not running or wrong startup type | Restart service, set to Automatic |
 | **Registry Security** | Key missing or value incorrect | Create/restore registry settings |
 | **Windows Defender** | Real-time protection disabled | Enable Defender, restart service |
-| **Required Applications** | App not installed or corrupted | Reinstall via Winget/Chocolatey |
-| **Edge / Copilot (0xc000007b)** | Missing/bad Edge, WebView2, VC++ x64, or Copilot AppX | Force-repair via winget + reset/re-register Copilot AppX + policy/registry |
+| **Required Applications** | App not installed or corrupted | Reinstall via Winget |
+| **Edge / Copilot (0xc000007b)** | Missing/bad Edge, WebView2, VC++ x64, or Copilot AppX | Force-repair via winget + reset/re-register Copilot AppX |
 
-## Intune Proactive Remediation Requirements
+## NinjaOne requirements
 
-- Microsoft Intune (MEM) license
-- Devices enrolled in Intune
-- **Endpoint analytics** or **Proactive remediations** (part of Intune add-ons)
+- NinjaOne agent on target devices
+- Scripts run as **System**
+- winget / App Installer for app repairs
 
 ## Deployment
 
-1. Go to **Intune** → **Reports** → **Endpoint analytics** → **Proactive remediations**
-2. Create a new script package for each remediation
-3. Upload Detection.ps1 and Remediation.ps1
-4. Assign to device groups
-5. Set run schedule (e.g., every 8 hours)
+1. **Administration → Library → Automation → Add → New Script**
+2. Language: **PowerShell**
+3. Paste `Edge-Copilot-Repair/NinjaOne-DetectAndRepair.ps1` (or another remediation)
+4. Run on-demand, via policy schedule, or from a condition
+5. Run as **System**, timeout **30+ minutes** for Edge/Copilot repair
 
-See [INUNE-DEPLOYMENT.md](INUNE-DEPLOYMENT.md) for step-by-step instructions.
+See [NINJAONE-DEPLOYMENT.md](NINJAONE-DEPLOYMENT.md) for step-by-step instructions.
 
 ## Local Testing
 
-Run detection only (no changes):
 ```powershell
-.\remediations\WindowsUpdate-Service\Detection.ps1
+.\Edge-Copilot-Repair\Detection.ps1
 # Exit 0 = OK, Exit 1 = needs fix
-```
 
-Run remediation manually:
-```powershell
-.\remediations\WindowsUpdate-Service\Remediation.ps1
+# Elevated:
+.\Edge-Copilot-Repair\Remediation.ps1
+# Or the NinjaOne one-shot:
+.\Edge-Copilot-Repair\NinjaOne-DetectAndRepair.ps1
 ```
 
 ## Logging & Monitoring
 
-- Scripts write to `C:\ProgramData\Remediation\Logs\` (configurable)
-- Intune captures output in **Device** → **Proactive remediations** → Script results
-- Use `monitoring/RemediationReport.ps1` to aggregate local logs
+- Local: `C:\ProgramData\Remediation\Logs\`
+- NinjaOne: device **Activities** / script results
+- Optional: `Remediation Report` to aggregate local logs
 
 ## Security
 
-- Scripts require SYSTEM context (Intune runs as SYSTEM)
-- No credentials in scripts; use Managed Identity or Azure Key Vault for secrets
-- Audit before production deployment
-
-
+- Prefer **System** context in NinjaOne
+- No credentials in scripts
+- Pilot on a small device set before org-wide policy

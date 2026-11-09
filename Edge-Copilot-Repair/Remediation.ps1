@@ -11,6 +11,8 @@
       6) Ensure common Copilot shell registry keys exist (HKCU when available)
 
     Safe to re-run. Prefer this over wiping the OS for embedded Microsoft apps.
+
+    Designed for NinjaOne (run as System) and local elevated PowerShell.
 #>
 
 #Requires -RunAsAdministrator
@@ -30,18 +32,35 @@ if (-not (Test-Path $LogPath)) {
     New-Item -Path $LogPath -ItemType Directory -Force | Out-Null
 }
 
+function Get-WingetPath {
+    $cmd = Get-Command winget -ErrorAction SilentlyContinue
+    if ($cmd -and $cmd.Source) { return $cmd.Source }
+
+    # NinjaOne / SYSTEM often has no PATH entry for App Installer
+    $candidates = @()
+    $candidates += Get-ChildItem -Path "$env:ProgramFiles\WindowsApps" -Filter "winget.exe" -Recurse -ErrorAction SilentlyContinue |
+        Where-Object { $_.FullName -match 'Microsoft\.DesktopAppInstaller_.*_x64__8wekyb3d8bbwe' } |
+        Sort-Object FullName -Descending
+    $localApp = Join-Path $env:LOCALAPPDATA "Microsoft\WindowsApps\winget.exe"
+    if (Test-Path $localApp) { $candidates += Get-Item $localApp -ErrorAction SilentlyContinue }
+
+    $hit = $candidates | Select-Object -First 1
+    if ($hit) { return $hit.FullName }
+    return $null
+}
+
 function Invoke-WingetRepair {
     param(
         [Parameter(Mandatory)][string]$Id,
         [Parameter(Mandatory)][string]$DisplayName
     )
-    $winget = Get-Command winget -ErrorAction SilentlyContinue
-    if (-not $winget) {
-        Write-Log "WARN: winget not found; skipping $DisplayName"
+    $wingetExe = Get-WingetPath
+    if (-not $wingetExe) {
+        Write-Log "WARN: winget not found (SYSTEM PATH / App Installer); skipping $DisplayName"
         return $false
     }
-    Write-Log "Repairing $DisplayName ($Id) via winget..."
-    & winget install --id $Id --exact --force --accept-package-agreements --accept-source-agreements --disable-interactivity 2>&1 |
+    Write-Log "Repairing $DisplayName ($Id) via winget ($wingetExe)..."
+    & $wingetExe install --id $Id --exact --force --accept-package-agreements --accept-source-agreements --disable-interactivity 2>&1 |
         ForEach-Object { Write-Log "  winget: $_" }
     if ($LASTEXITCODE -eq 0) {
         Write-Log "SUCCESS: $DisplayName repair/install completed"

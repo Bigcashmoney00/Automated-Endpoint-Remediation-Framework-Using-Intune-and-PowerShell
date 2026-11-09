@@ -1,4 +1,7 @@
-# Intune Proactive Remediation Deployment Guide
+# Intune Proactive Remediation Deployment Guide (optional)
+
+> **Primary deployment path is NinjaOne** — see [NINJAONE-DEPLOYMENT.md](NINJAONE-DEPLOYMENT.md).
+> Keep this file only if you also publish the same scripts as Intune proactive remediations.
 
 ## Prerequisites
 
